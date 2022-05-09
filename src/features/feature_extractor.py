@@ -15,6 +15,3 @@ def RTF(data):
         stft_sig[i] = stft_sig[i] / ref_mic_stft
     
     return np.real(stft_sig), np.imag(stft_sig)
-
-
-
