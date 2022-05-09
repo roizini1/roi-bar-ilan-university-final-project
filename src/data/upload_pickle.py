@@ -1,10 +1,10 @@
-import os
-import nprirgen
+# import os
 from yaml import safe_load
 # import random
 import torch
 import pickle
 from feature_extractor import RTF
+
 # configs' args upload:
 stream = open("/home/dsi/ziniroi/roi-aviad/config_try.yaml", 'r')
 dictionary = safe_load(stream)
