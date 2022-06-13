@@ -44,6 +44,11 @@ def RTF(data):
         rtf[i,1,:] = temp.imag
     
     #real_imag_mix =                                        #torch.cat((torch.tensor(rtf,dtype=torch.cfloat).real, torch.tensor(rtf,dtype=torch.cfloat).imag,2))
-    
+    #print(rtf.shape)
     # real_imag_target = torch.cat((torch.tensor(stft_target,dtype=torch.cfloat).real(), torch.tensor(stft_target,dtype=torch.cfloat).imag()),2)
     return  rtf , target         #real_imag_mix , real_imag_target
+
+
+
+def istft_loss(sig):
+    signal.istft(sig,nperseg=512, window="hamming", noverlap=512 * 0.75)[1]

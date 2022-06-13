@@ -41,9 +41,8 @@ def loader(input):
 
     return mix_out ,target_out
 
-def is_valid_file(input):
-    item = pickle.load(open(input, 'rb'))
-    return not(np.isnan(item).any())
+
+
 
 
 
@@ -54,8 +53,23 @@ train_loader = torch.utils.data.DataLoader(
         batch_size = batch_size,
         shuffle = True)
 
+def train_loader():
+    root = data_init.get("results_path").get("train")
+    data = torchvision.datasets.DatasetFolder(root=root, loader=loader, extensions='.p', transform=RTF)  #, is_valid_file=is_valid_file
+    t_loader = torch.utils.data.DataLoader(
+        dataset = train_data,
+        batch_size = batch_size,
+        shuffle = True
+    )
+    return t_loader
 
+def is_valid_file(input):
+    item = pickle.load(open(input, 'rb'))
+    return not(np.isnan(item).any())
+'''
 for batch in train_loader:
-    x,y = batch
-    all_dim = x.shape
+    
+    x = batch
+    all_dim = x[0][0].shape
     print(all_dim)
+'''
