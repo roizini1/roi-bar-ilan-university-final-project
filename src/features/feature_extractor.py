@@ -2,18 +2,16 @@ import numpy as np
 import torch
 from scipy import signal
 
-def RTF(data):
+def RTF_mix(data):
     '''Relative Transfer Function'''
     '''Recived data is in shape->(mics num, samples)'''
-    print("data:",data[0].shape)
+    #print("RTF input data shape: ",data.shape)
+    
+    eps = 10**-6
     stft_mix = []
-    # stft_target = []
-    mix = data[0]
+    mix = data
 
-    # mix = data
-    # print(mix.shape,target.shape)
     mics_num = mix.shape[0] # mics num
-    # num_of_speakers = target.shape[0]
     
     # mix handle:
     i = 0
@@ -23,40 +21,21 @@ def RTF(data):
         sig = sig / max(abs(sig)) # normalized data
         stft_calc = signal.stft(sig,nperseg=512, window="hamming", noverlap=512 * 0.75)[2]  ##might be better with other params
         stft_mix.append(stft_calc)
-    
-    # print('mix shape: '+str(stft_mix[0].shape))
-    stft_shape = stft_mix[0].shape
 
-    #j = 0
-    #for j in range(num_of_speakers):
-    #    sig = target[j,0,:] #  i is mic number
-    #    sig = sig / max(abs(sig)) # normalized data
-    #    stft_calc = signal.stft(sig,nperseg=512, window="hamming", noverlap=512 * 0.75)[2]  ##might be better with other params
-    #    stft_target.append(stft_calc)
-    
+    stft_shape = stft_mix[0].shape
 
     rtf = torch.zeros([mics_num,2,stft_shape[0],stft_shape[1]],dtype=torch.cfloat)
     ref_mic_stft = stft_mix[0]
 
     i = 0
     for i in range(mics_num):
-        temp = torch.tensor(stft_mix[i] /  (0.00001+ref_mic_stft),dtype=torch.cfloat)
-        # print(temp.shape)
-        rtf[i,0,:]= temp.real
-        rtf[i,1,:]=temp.imag
-    #print(target.shape)
-    #print(rtf.shape)
+        temp = torch.tensor(stft_mix[i] / (eps+ref_mic_stft),dtype=torch.cfloat)
 
-    #real_imag_mix =                                        #torch.cat((torch.tensor(rtf,dtype=torch.cfloat).real, torch.tensor(rtf,dtype=torch.cfloat).imag,2))
-    #print(rtf.shape)
-    # real_imag_target = torch.cat((torch.tensor(stft_target,dtype=torch.cfloat).real(), torch.tensor(stft_target,dtype=torch.cfloat).imag()),2)
-    return  rtf.float() #, target         #real_imag_mix , real_imag_target
+        rtf[i,0,:,:]= temp.real
+        rtf[i,1,:,:]=temp.imag
 
+    return  rtf
 
-def RTF1(data):
-    print(data)
-    #print("target:",data[1].shape)
+def RTF_target(data):
     target = data
     return target
-
-
