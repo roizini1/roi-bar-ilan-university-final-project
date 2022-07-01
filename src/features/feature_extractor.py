@@ -5,9 +5,11 @@ from scipy import signal
 def RTF(data):
     '''Relative Transfer Function'''
     '''Recived data is in shape->(mics num, samples)'''
+    print("data:",data[0].shape)
     stft_mix = []
     # stft_target = []
-    mix , target = data
+    mix = data[0]
+
     # mix = data
     # print(mix.shape,target.shape)
     mics_num = mix.shape[0] # mics num
@@ -38,17 +40,23 @@ def RTF(data):
 
     i = 0
     for i in range(mics_num):
-        temp = torch.tensor(stft_mix[i] /  ref_mic_stft,dtype=torch.cfloat)
+        temp = torch.tensor(stft_mix[i] /  (0.00001+ref_mic_stft),dtype=torch.cfloat)
         # print(temp.shape)
-        rtf[i,0,:] = temp.real
-        rtf[i,1,:] = temp.imag
-    
+        rtf[i,0,:]= temp.real
+        rtf[i,1,:]=temp.imag
+    #print(target.shape)
+    #print(rtf.shape)
+
     #real_imag_mix =                                        #torch.cat((torch.tensor(rtf,dtype=torch.cfloat).real, torch.tensor(rtf,dtype=torch.cfloat).imag,2))
     #print(rtf.shape)
     # real_imag_target = torch.cat((torch.tensor(stft_target,dtype=torch.cfloat).real(), torch.tensor(stft_target,dtype=torch.cfloat).imag()),2)
-    return  rtf , target         #real_imag_mix , real_imag_target
+    return  rtf.float() #, target         #real_imag_mix , real_imag_target
 
 
+def RTF1(data):
+    print(data)
+    #print("target:",data[1].shape)
+    target = data
+    return target
 
-def istft_loss(sig):
-    signal.istft(sig,nperseg=512, window="hamming", noverlap=512 * 0.75)[1]
+
