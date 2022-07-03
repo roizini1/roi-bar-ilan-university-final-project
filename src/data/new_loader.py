@@ -65,9 +65,16 @@ class CustomDataset(Dataset):
 data_set = CustomDataset('/home/dsi/ziniroi/roi-aviad/data/raw/train')
 
 train_dataloader = DataLoader(data_set, batch_size=3, shuffle=True)
+
+
+
+
+
+'''
 for i in train_dataloader:
     mix, target = i
 
     print('mix: '+str(mix.shape))
     print('target: '+str(target.shape))
     break
+'''
