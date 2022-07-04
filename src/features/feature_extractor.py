@@ -31,8 +31,8 @@ def RTF_mix(mix):
     for i in range(mics_num):
         temp = torch.tensor(stft_mix[i+1] / (stft_mix[ref_mic_index]+eps),dtype=torch.cfloat)
 
-        rtf[i,:,:]= temp.real
-        rtf[i+1,:,:]=temp.imag
+        rtf[2*i,:,:]= temp.real
+        rtf[2*i+1,:,:]=temp.imag
 
     return  rtf
 
