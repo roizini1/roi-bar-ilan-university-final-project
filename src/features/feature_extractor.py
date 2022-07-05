@@ -34,7 +34,7 @@ def RTF_mix(mix):
         rtf[2*i,:,:]= temp.real
         rtf[2*i+1,:,:]=temp.imag
 
-    return  rtf
+    return rtf
 
 def RTF_target(target):
     '''STFT calculation'''

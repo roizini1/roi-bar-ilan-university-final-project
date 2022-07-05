@@ -13,17 +13,19 @@ from torch.utils.data import DataLoader, random_split
 
 import pytorch_lightning as pl
 sys.path.append('/home/dsi/ziniroi/roi-aviad/src/data')
-from new_loader import train_dataloader,CustomDataset
+from new_loader import CustomDataset
 
 
 class Unet(pl.LightningModule):
     def __init__(self, hparams):
         super(Unet, self).__init__()
+        self.batch_size = hparams.batch_size
         self.hparams = hparams
-
         self.n_channels = hparams.n_channels
         self.n_classes = hparams.n_classes
         self.bilinear = True
+        self.loss_function = F.mse_loss
+        self.learning_rate = hparams.learning_rate
 
         def double_conv(in_channels, out_channels):
             return nn.Sequential(
@@ -90,16 +92,14 @@ class Unet(pl.LightningModule):
     def training_step(self, batch, batch_nb):
         x, y = batch
         y_hat = self.forward(x)
-        loss = F.cross_entropy(y_hat, y) if self.n_classes > 1 else \
-            F.binary_cross_entropy_with_logits(y_hat, y)
+        loss = self.loss_function(y_hat, y)
         tensorboard_logs = {'train_loss': loss}
         return {'loss': loss, 'log': tensorboard_logs}
 
     def validation_step(self, batch, batch_nb):
         x, y = batch
         y_hat = self.forward(x)
-        loss = F.cross_entropy(y_hat, y) if self.n_classes > 1 else \
-            F.binary_cross_entropy_with_logits(y_hat, y)
+        loss = self.loss_function(y_hat, y)
         return {'val_loss': loss}
 
     def validation_end(self, outputs):
@@ -108,17 +108,17 @@ class Unet(pl.LightningModule):
         return {'avg_val_loss': avg_loss, 'log': tensorboard_logs}
 
     def configure_optimizers(self):
-        return torch.optim.RMSprop(self.parameters(), lr=0.1, weight_decay=1e-8)
+        return torch.optim.RMSprop(self.parameters(), lr=self.learning_rate, weight_decay=1e-8)
 
     def __dataloader(self):
         
         dataset = CustomDataset(self.hparams.dataset_dir)
-        n_val = int(len(dataset) * 0.1)
-        n_train = len(dataset) - n_val
+        n_val = int(dataset.__len__ * 0.1)
+        n_train = dataset.__len__ - n_val
         train_ds, val_ds = random_split(dataset, [n_train, n_val])
         
-        train_loader = DataLoader(train_ds, batch_size=1, pin_memory=True, shuffle=True)
-        val_loader = DataLoader(val_ds, batch_size=1, pin_memory=True, shuffle=False)
+        train_loader = DataLoader(train_ds, batch_size=self.batch_size, pin_memory=True, shuffle=True)
+        val_loader = DataLoader(val_ds, batch_size=self.batch_size, pin_memory=True, shuffle=False)
 
         return {
             'train': train_loader,

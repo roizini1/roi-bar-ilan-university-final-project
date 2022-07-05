@@ -1,14 +1,24 @@
 import os
+import torch
 from argparse import ArgumentParser
 
 from Unet_roi_try import Unet
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
-
+    
 
 def main(hparams):
-    model = Unet(hparams)
+    # GPU handle:
+    if torch.cuda.is_available():
+       print('GPU is available on this device')
+       print(str(torch.cuda.device_count())+' GPUs are available')
+       device = torch.device("cuda:0")
+    else:
+        print("GPU isn't available on this device")
+        device = torch.device("cpu")
 
+    model = Unet(hparams)
+    model.to(device)
     os.makedirs(hparams.log_dir, exist_ok=True)
     try:
         log_dir = sorted(os.listdir(hparams.log_dir))[-1]
@@ -35,9 +45,12 @@ def main(hparams):
 
 
 if __name__ == '__main__':
+
     parent_parser = ArgumentParser(add_help=False)
     parent_parser.add_argument('--dataset_dir', default='/home/dsi/ziniroi/roi-aviad/data/raw/train')
     parent_parser.add_argument('--log_dir', default='lightning_logs')
+    parent_parser.add_argument('--batch_size', default=1)
+    parent_parser.add_argument('--learning_rate',default=0.1)
 
     parser = Unet.add_model_specific_args(parent_parser)
     hparams = parser.parse_args()
