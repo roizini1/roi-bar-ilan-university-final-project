@@ -15,7 +15,7 @@ class CustomDataset(Dataset):
         self.transform = transform
         self.target_transform = target_transform
         self.files_list = os.listdir(data_dir)
-        
+        self.len = len(self.files_list)
         # According to data generation:
         self.mix_index = 0
         self.target_index = 1
@@ -24,7 +24,8 @@ class CustomDataset(Dataset):
         # Initiated cutting:
         self.seconds = 3
         self.samples = self.seconds * self.fs
-
+    def get_len(self):
+        return self.len
     def loader(self,dir):
         # Loading pickle file:
         item = pickle.load(open(dir, 'rb'))

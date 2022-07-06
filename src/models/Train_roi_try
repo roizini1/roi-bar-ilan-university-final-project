@@ -1,13 +1,29 @@
 import os
 import torch
 from argparse import ArgumentParser
-
+from torch.utils.tensorboard import SummaryWriter
 from Unet_roi_try import Unet
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
-    
+import GPUtil
+from pytorch_lightning.loggers import TensorBoardLogger
 
+print('*********************'+str(GPUtil.getAvailable()))
+'''
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"]="0,1,2"
+'''
+#print(os.environ)
+print(torch.cuda.device_count())
 def main(hparams):
+    
+    '''
+    os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"]="0,1,2"
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+    os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
+    '''
+    #print(device_lib.list_local_devices())
     # GPU handle:
     if torch.cuda.is_available():
        print('GPU is available on this device')
@@ -25,20 +41,29 @@ def main(hparams):
     except IndexError:
         log_dir = os.path.join(hparams.log_dir, 'version_0')
     checkpoint_callback = ModelCheckpoint(
-        filepath=os.path.join(log_dir, 'checkpoints'),
-        save_best_only=False,
+        dirpath=os.path.join(log_dir, 'checkpoints'),
+        #filename='{epoch}-{val_loss:.2f}',
+        #save_best_only=False,
         verbose=True,
     )
     stop_callback = EarlyStopping(
         monitor='val_loss',
-        mode='auto',
+        mode='min', # min, max
         patience=5,
         verbose=True,
     )
+    
+    logger = TensorBoardLogger("/home/dsi/ziniroi/roi-aviad/src/lightning_logs", name="my_model") 
     trainer = Trainer(
-        gpus=1,
-        checkpoint_callback=checkpoint_callback,
-        early_stop_callback=stop_callback,
+        max_epochs=None,
+        accelerator="auto",
+        #gpus=1,
+        enable_checkpointing=True,
+        #enable_checkpointing=checkpoint_callback,
+        #early_stop_callback=stop_callback,
+        callbacks=[stop_callback],
+        logger=True,
+        #logger=logger,
     )
 
     trainer.fit(model)
@@ -48,7 +73,7 @@ if __name__ == '__main__':
 
     parent_parser = ArgumentParser(add_help=False)
     parent_parser.add_argument('--dataset_dir', default='/home/dsi/ziniroi/roi-aviad/data/raw/train')
-    parent_parser.add_argument('--log_dir', default='lightning_logs')
+    parent_parser.add_argument('--log_dir', default='/home/dsi/ziniroi/roi-aviad/src/lightning_logs')
     parent_parser.add_argument('--batch_size', default=1)
     parent_parser.add_argument('--learning_rate',default=0.1)
 

@@ -9,7 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from torch.utils.data import DataLoader, random_split
-
+import numpy as np
 
 import pytorch_lightning as pl
 sys.path.append('/home/dsi/ziniroi/roi-aviad/src/data')
@@ -20,7 +20,7 @@ class Unet(pl.LightningModule):
     def __init__(self, hparams):
         super(Unet, self).__init__()
         self.batch_size = hparams.batch_size
-        self.hparams = hparams
+        self.hp = hparams
         self.n_channels = hparams.n_channels
         self.n_classes = hparams.n_classes
         self.bilinear = True
@@ -92,8 +92,10 @@ class Unet(pl.LightningModule):
     def training_step(self, batch, batch_nb):
         x, y = batch
         y_hat = self.forward(x)
+        #print('************************************************************\n'+str(y.dtype)+'*********************8'+str(y_hat.dtype))
         loss = self.loss_function(y_hat, y)
         tensorboard_logs = {'train_loss': loss}
+        #self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         return {'loss': loss, 'log': tensorboard_logs}
 
     def validation_step(self, batch, batch_nb):
@@ -112,24 +114,26 @@ class Unet(pl.LightningModule):
 
     def __dataloader(self):
         
-        dataset = CustomDataset(self.hparams.dataset_dir)
-        n_val = int(dataset.__len__ * 0.1)
-        n_train = dataset.__len__ - n_val
+        dataset = CustomDataset(self.hp.dataset_dir)
+        n_val = int(dataset.get_len() * 0.1)
+        #n_val = int(np.copy(n_val))
+
+        n_train = dataset.get_len() - n_val
         train_ds, val_ds = random_split(dataset, [n_train, n_val])
         
-        train_loader = DataLoader(train_ds, batch_size=self.batch_size, pin_memory=True, shuffle=True)
-        val_loader = DataLoader(val_ds, batch_size=self.batch_size, pin_memory=True, shuffle=False)
+        train_loader = DataLoader(train_ds, batch_size=self.batch_size, pin_memory=True, shuffle=True,num_workers=os.cpu_count())
+        val_loader = DataLoader(val_ds, batch_size=self.batch_size, pin_memory=True, shuffle=False,num_workers=os.cpu_count())
 
         return {
             'train': train_loader,
             'val': val_loader,
         }
 
-    @pl.data_loader
+    #@pl.data_loader
     def train_dataloader(self):
         return self.__dataloader()['train']
 
-    @pl.data_loader
+    #@pl.data_loader
     def val_dataloader(self):
         return self.__dataloader()['val']
 
@@ -138,5 +142,5 @@ class Unet(pl.LightningModule):
         parser = ArgumentParser(parents=[parent_parser])
 
         parser.add_argument('--n_channels', type=int, default=6)
-        parser.add_argument('--n_classes', type=int, default=2)
+        parser.add_argument('--n_classes', type=int, default=4)
         return parser
