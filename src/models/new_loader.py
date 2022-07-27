@@ -1,12 +1,13 @@
 import sys
-sys.path.append('/home/dsi/ziniroi/roi-aviad/src/features')
-from scipy.signal import csd
+sys.path.append('/roi-aviad/src/features')
+
 import os
 import torch
 import pickle
 import numpy as np
 from feature_extractor import RTF_mix, RTF_target
 from torch.utils.data import Dataset, DataLoader
+from scipy import signal
 
 class OldDataset(Dataset):
     def __init__(self, data_dir, transform=RTF_mix, target_transform=RTF_target):
@@ -113,16 +114,19 @@ class CustomDataset(Dataset):
 
 def PSD(x,y):
     f, Pxx_den_2 = signal.csd(x,y,fs = fs,nfft=x.shape[0],return_onesided = False)
-'''
-def H_transform(h):
-    
 
+def H_transform(h):
+    np.shape(h)
+    '''
+    x = np.randn(np.shape(h))
+    y = signal.convolve(h, x , mode='full', method='auto')
     S_
 
     H = 
 
     return H
-'''
+    '''
+
 
 
 

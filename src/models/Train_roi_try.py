@@ -2,7 +2,7 @@ import os
 import torch
 from argparse import ArgumentParser
 from torch.utils.tensorboard import SummaryWriter
-from Unet_roi_try import Unet
+from Unet_roi_try import Unet,Unet_Model
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 import GPUtil
@@ -15,7 +15,7 @@ available_gpus = torch.cuda.device_count()
 #print(torch.cuda.device_count())
 def main(hparams):
 
-    model = Unet(hparams)
+    model = Unet_Model(hparams)#Unet(hparams)
     
     os.makedirs(hparams.log_dir, exist_ok=True)
     try:

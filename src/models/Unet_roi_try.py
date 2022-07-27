@@ -2,44 +2,130 @@ from asteroid.losses import pairwise_mse, singlesrc_mse, multisrc_mse
 from torch.utils.data import DataLoader, random_split
 from asteroid.losses import PITLossWrapper
 from new_loader import CustomDataset
-from argparse import ArgumentParser
+import torchvision
 import torch.nn.functional as F
 import pytorch_lightning as pl
-import torch.nn as nn 
-import numpy as np
+import torch.nn as nn
 import torch
-import os
-import sys
-sys.path.append('/home/dsi/ziniroi/roi-aviad/src/data')
+#import sys
+#sys.path.append('/home/dsi/ziniroi/roi-aviad/src/data')
 
-class Encoder(torch.nn.Module):
-    def __init__(self):
+class Block(nn.Module):
+    def __init__(self, in_ch, out_ch):
         super().__init__()
+        self.block = nn.Sequential(
+            nn.ReLU,
+            nn.Conv2d(in_ch, out_ch, 3),
+            nn.BatchNorm2d(out_ch),
+            nn.ReLU,
+            nn.Conv2d(out_ch, out_ch, 3),
+            nn.BatchNorm2d(out_ch),
+        )
+    
+    def forward(self, x):
+        return self.block(x)
 
+class Encoder(nn.Module):
+    def __init__(self, in_channels):
+        super().__init__()
+        chs=(in_channels,64,128,256,512,1024)
+        self.enc_blocks = nn.ModuleList([Block(chs[i], chs[i+1]) for i in range(len(chs)-1)])
+        self.pool = nn.MaxPool2d(2)
+    
+    def forward(self, x):
+        ftrs = []
+        for block in self.enc_blocks:
+            x = block(x)
+            ftrs.append(x)
+            x = self.pool(x)
+        return ftrs
 
+class Decoder(nn.Module):
+    def __init__(self, out_channels):
+        super().__init__()
+        self.chs = (1024, 512, 256, 128, 64)
+        self.upconvs = nn.ModuleList([nn.ConvTranspose2d(self.chs[i], self.chs[i+1], 2, 2) for i in range(len(self.chs)-1)])
+        self.dec_blocks = nn.ModuleList([Block(self.chs[i], self.chs[i+1]) for i in range(len(self.chs)-1)]) 
+        self.out = nn.Conv2d(self.chs[len(self.chs)-1], out_channels, kernel_size=1)
+        
+    def forward(self, x, encoder_features):
+        for i in range(len(self.chs)-1):
+            x = self.upconvs[i](x)
+            enc_ftrs = self.crop(encoder_features[i], x)
+            x = torch.cat([x, enc_ftrs], dim=1)
+            x = self.dec_blocks[i](x)
+        return self.out(x)
+    
+    def crop(self, enc_ftrs, x):
+        _, _, H, W = x.shape
+        enc_ftrs = torchvision.transforms.CenterCrop([H, W])(enc_ftrs)
+        return enc_ftrs
+
+class Unet(torch.nn.Module):
+    def __init__(self,in_channels, out_channels):
+        super().__init__()
+        self.encoder = Encoder(in_channels)
+        self.decoder = Decoder(out_channels)
 
     def forward(self, x):
-        x = F.relu(self.conv1(x))
-        return F.relu(self.conv2(x))
-
-    def down(in_channels, out_channels):
-        return nn.Sequential(
-            nn.MaxPool2d(2),
-            double_conv(in_channels, out_channels)
-        )
-    def double_conv(in_channels, out_channels):
-        return nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True),
-        )
+        return self.decoder(self.encoder(x))
 
 
+class Unet_Model(pl.LightningModule):
+    def __init__(self,hparams):
+        super().__init__()
+        self.save_hyperparameters(hparams)
+        self.train_hp = hparams.Training
+        self.net_hp = hparams.Net_hp
 
-class Unet(pl.LightningModule):
+        self.in_channels = self.net_hp.n_channels
+        self.out_channels = self.net_hp.n_classes
+        
+        self.Unet = Unet(self.in_channels, self.out_channels)
+        
+        self.lr = self.train_hp.lr
+        self.loss_function = F.mse_loss
+        self.batch_size = self.train_hp.batch_size
+        self.train_data_dir = self.train_hp.train_data_dir
+
+    def forward(self, x):
+        return self.Unet(x)
+        
+    def training_step(self, batch):
+        x, y = batch
+        y_hat = self.Unet(x)
+        print(y_hat.size,y.size)
+    
+    def configure_optimizers(self):
+        return torch.optim.Adam(self.parameters(), lr=self.lr, weight_decay=1e-8)
+    
+    def __dataloader(self):
+        
+        dataset = CustomDataset(self.hp.dataset_dir)
+        n_val = int(dataset.get_len() * 0.1)
+        #n_val = int(np.copy(n_val))
+
+        n_train = dataset.get_len() - n_val
+        train_ds, val_ds = random_split(dataset, [n_train, n_val])
+        
+        train_loader = DataLoader(train_ds, batch_size=self.batch_size, pin_memory=True, shuffle=True,num_workers=4)
+        val_loader = DataLoader(val_ds, batch_size=self.batch_size, pin_memory=True, shuffle=False,num_workers=4)
+
+        return {
+            'train': train_loader,
+            'val': val_loader,
+        }
+
+    #@pl.data_loader
+    def train_dataloader(self):
+        return self.__dataloader()['train']
+
+    #@pl.data_loader
+    def val_dataloader(self):
+        return self.__dataloader()['val']
+
+
+class Unet_old(pl.LightningModule):
     def __init__(self, hparams):
         super().__init__()
         self.save_hyperparameters(hparams)
@@ -59,7 +145,7 @@ class Unet(pl.LightningModule):
 
         def double_conv(in_channels, out_channels):
             return nn.Sequential(
-                nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+                nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1), # (N,C,H,W)
                 nn.BatchNorm2d(out_channels),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
