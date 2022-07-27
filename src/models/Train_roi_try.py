@@ -14,25 +14,7 @@ available_gpus = torch.cuda.device_count()
 
 #print(torch.cuda.device_count())
 def main(hparams):
-    
-    '''
-    os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-    os.environ["CUDA_VISIBLE_DEVICES"]="0,1,2"
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-    os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
-    '''
-    #print(device_lib.list_local_devices())
-    # GPU handle:
-    '''
-    if torch.cuda.is_available():
-       print('GPU is available on this device')
-       print(str(torch.cuda.device_count())+' GPUs are available')
-       device = torch.device("cuda:0")
-    else:
-        print("GPU isn't available on this device")
-        device = torch.device("cpu")
-    model.to(device)
-    '''
+
     model = Unet(hparams)
     
     os.makedirs(hparams.log_dir, exist_ok=True)
@@ -82,5 +64,6 @@ if __name__ == '__main__':
 
     parser = Unet.add_model_specific_args(parent_parser)
     hparams = parser.parse_args()
+    
 
     main(hparams)

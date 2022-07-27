@@ -12,18 +12,50 @@ import os
 import sys
 sys.path.append('/home/dsi/ziniroi/roi-aviad/src/data')
 
+class Encoder(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        return F.relu(self.conv2(x))
+
+    def down(in_channels, out_channels):
+        return nn.Sequential(
+            nn.MaxPool2d(2),
+            double_conv(in_channels, out_channels)
+        )
+    def double_conv(in_channels, out_channels):
+        return nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True),
+        )
+
+
 
 class Unet(pl.LightningModule):
     def __init__(self, hparams):
-        super(Unet, self).__init__()
-        #self.batch_size = batch_size
-        self.batch_size = hparams.batch_size
-        self.hp = hparams
-        self.n_channels = hparams.n_channels
-        self.n_classes = hparams.n_classes
+        super().__init__()
+        self.save_hyperparameters(hparams)
+        self.train_hp = hparams.Training
+        self.net_hp = hparams.Net_hp
+
+        self.lr = self.train_hp.lr
+        self.batch_size = self.train_hp.batch_size
+        self.train_data_dir = self.train_hp.train_data_dir
+
+        self.n_channels = self.net_hp.n_channels
+        self.n_classes = self.net_hp.n_classes
+        
         self.bilinear = True
         self.loss_function = F.mse_loss
-        self.learning_rate = hparams.learning_rate
+        
 
         def double_conv(in_channels, out_channels):
             return nn.Sequential(
@@ -116,7 +148,7 @@ class Unet(pl.LightningModule):
         return {'avg_val_loss': avg_loss, 'log': tensorboard_logs}
         '''
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=1e-8)
+        return torch.optim.Adam(self.parameters(), lr=self.lr, weight_decay=1e-8)
 
     def on_after_backward(self) -> None:
         valid_gradients = True
@@ -155,11 +187,3 @@ class Unet(pl.LightningModule):
     #@pl.data_loader
     def val_dataloader(self):
         return self.__dataloader()['val']
-
-    @staticmethod
-    def add_model_specific_args(parent_parser):
-        parser = ArgumentParser(parents=[parent_parser])
-
-        parser.add_argument('--n_channels', type=int, default=6)
-        parser.add_argument('--n_classes', type=int, default=4)
-        return parser
