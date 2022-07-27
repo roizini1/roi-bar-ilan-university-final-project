@@ -34,7 +34,7 @@ def RTF_mix(mix):
         rtf[2*i,:,:]= temp.real
         rtf[2*i+1,:,:]=temp.imag
 
-    return torch.tensor(rtf,dtype=torch.float)
+    return rtf.to(torch.float32)
 
 def RTF_target(target):
     '''STFT calculation'''
@@ -57,4 +57,4 @@ def RTF_target(target):
         target_out[2*i+1,:,:] = stft_target[i].imag
 
 
-    return torch.tensor(target_out,dtype=torch.float32)
+    return torch.from_numpy(target_out).to(torch.float32)

@@ -1,24 +1,22 @@
+from asteroid.losses import pairwise_mse, singlesrc_mse, multisrc_mse
+from torch.utils.data import DataLoader, random_split
+from asteroid.losses import PITLossWrapper
+from new_loader import CustomDataset
+from argparse import ArgumentParser
+import torch.nn.functional as F
+import pytorch_lightning as pl
+import torch.nn as nn 
+import numpy as np
+import torch
 import os
 import sys
-
-from argparse import ArgumentParser
-
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
-from torch.utils.data import DataLoader, random_split
-import numpy as np
-
-import pytorch_lightning as pl
 sys.path.append('/home/dsi/ziniroi/roi-aviad/src/data')
-from new_loader import CustomDataset
 
 
 class Unet(pl.LightningModule):
     def __init__(self, hparams):
         super(Unet, self).__init__()
+        #self.batch_size = batch_size
         self.batch_size = hparams.batch_size
         self.hp = hparams
         self.n_channels = hparams.n_channels
@@ -47,10 +45,10 @@ class Unet(pl.LightningModule):
             def __init__(self, in_channels, out_channels, bilinear=True):
                 super().__init__()
 
-                if bilinear:
-                    self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-                else:
-                    self.up = nn.ConvTranpose2d(in_channels // 2, in_channels // 2,
+                #if bilinear:
+                #    self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+            # else:
+                self.up = nn.ConvTranspose2d(in_channels // 2, in_channels // 2,
                                                 kernel_size=2, stride=2)
 
                 self.conv = double_conv(in_channels, out_channels)
@@ -92,25 +90,46 @@ class Unet(pl.LightningModule):
     def training_step(self, batch, batch_nb):
         x, y = batch
         y_hat = self.forward(x)
-        #print('************************************************************\n'+str(y.dtype)+'*********************8'+str(y_hat.dtype))
-        loss = self.loss_function(y_hat, y)
+        loss_func = PITLossWrapper(multisrc_mse, pit_from='perm_avg')
+        loss = loss_func(y_hat, y)
         tensorboard_logs = {'train_loss': loss}
-        #self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log("loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         return {'loss': loss, 'log': tensorboard_logs}
 
     def validation_step(self, batch, batch_nb):
         x, y = batch
         y_hat = self.forward(x)
-        loss = self.loss_function(y_hat, y)
+        loss_func = PITLossWrapper(multisrc_mse, pit_from='perm_avg')
+        loss = loss_func(y_hat, y)
+        self.log("val_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         return {'val_loss': loss}
 
-    def validation_end(self, outputs):
+    def validation_epoch_end(self, outputs):
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         tensorboard_logs = {'val_loss': avg_loss}
         return {'avg_val_loss': avg_loss, 'log': tensorboard_logs}
 
+    '''
+    def validation_end(self, outputs):
+        avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
+        tensorboard_logs = {'val_loss': avg_loss}
+        return {'avg_val_loss': avg_loss, 'log': tensorboard_logs}
+        '''
     def configure_optimizers(self):
-        return torch.optim.RMSprop(self.parameters(), lr=self.learning_rate, weight_decay=1e-8)
+        return torch.optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=1e-8)
+
+    def on_after_backward(self) -> None:
+        valid_gradients = True
+        for name, param in self.named_parameters():
+            if param.grad is not None:
+                valid_gradients = not (torch.isnan(param.grad).any() or torch.isinf(param.grad).any())
+                if not valid_gradients:
+                    break
+
+        if not valid_gradients:
+            print(f'detected inf or nan values in gradients. not updating model parameters')
+            self.zero_grad()
+
 
     def __dataloader(self):
         
@@ -121,8 +140,8 @@ class Unet(pl.LightningModule):
         n_train = dataset.get_len() - n_val
         train_ds, val_ds = random_split(dataset, [n_train, n_val])
         
-        train_loader = DataLoader(train_ds, batch_size=self.batch_size, pin_memory=True, shuffle=True,num_workers=os.cpu_count())
-        val_loader = DataLoader(val_ds, batch_size=self.batch_size, pin_memory=True, shuffle=False,num_workers=os.cpu_count())
+        train_loader = DataLoader(train_ds, batch_size=self.batch_size, pin_memory=True, shuffle=True,num_workers=4)
+        val_loader = DataLoader(val_ds, batch_size=self.batch_size, pin_memory=True, shuffle=False,num_workers=4)
 
         return {
             'train': train_loader,

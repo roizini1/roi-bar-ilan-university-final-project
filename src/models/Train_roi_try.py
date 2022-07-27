@@ -7,14 +7,12 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 import GPUtil
 from pytorch_lightning.loggers import TensorBoardLogger
+import torch.multiprocessing
+from pytorch_lightning.callbacks import RichProgressBar
+available_gpus = torch.cuda.device_count()
 
-print('*********************'+str(GPUtil.getAvailable()))
-'''
-os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]="0,1,2"
-'''
-#print(os.environ)
-print(torch.cuda.device_count())
+
+#print(torch.cuda.device_count())
 def main(hparams):
     
     '''
@@ -25,6 +23,7 @@ def main(hparams):
     '''
     #print(device_lib.list_local_devices())
     # GPU handle:
+    '''
     if torch.cuda.is_available():
        print('GPU is available on this device')
        print(str(torch.cuda.device_count())+' GPUs are available')
@@ -32,40 +31,44 @@ def main(hparams):
     else:
         print("GPU isn't available on this device")
         device = torch.device("cpu")
-
-    model = Unet(hparams)
     model.to(device)
+    '''
+    model = Unet(hparams)
+    
     os.makedirs(hparams.log_dir, exist_ok=True)
     try:
         log_dir = sorted(os.listdir(hparams.log_dir))[-1]
     except IndexError:
         log_dir = os.path.join(hparams.log_dir, 'version_0')
-    checkpoint_callback = ModelCheckpoint(
-        dirpath=os.path.join(log_dir, 'checkpoints'),
-        #filename='{epoch}-{val_loss:.2f}',
-        #save_best_only=False,
-        verbose=True,
-    )
-    stop_callback = EarlyStopping(
-        monitor='val_loss',
-        mode='min', # min, max
-        patience=5,
-        verbose=True,
-    )
     
-    logger = TensorBoardLogger("/home/dsi/ziniroi/roi-aviad/src/lightning_logs", name="my_model") 
-    trainer = Trainer(
-        max_epochs=None,
-        accelerator="auto",
-        #gpus=1,
-        enable_checkpointing=True,
-        #enable_checkpointing=checkpoint_callback,
-        #early_stop_callback=stop_callback,
-        callbacks=[stop_callback],
-        logger=True,
-        #logger=logger,
+    checkpoint_dirpath = os.path.join(log_dir, 'checkpoints')
+    checkpoint_callback = ModelCheckpoint(
+        monitor='val_loss', # by default is none whichsaves only the last epoch
+        save_top_k=-1,
+        filename='checkpoint_{epoch:02d}-{val_loss:.2f}',
+        dirpath = checkpoint_dirpath,
+        verbose=True
     )
-
+    stop_callback = EarlyStopping(monitor='val_loss', patience=3, mode='min') # for val_loss mode is min 
+    #logger_dirpath = os.path.join(log_dir, 'logs')
+    #tb_logger = pl_loggers.TensorBoardLogger(save_dir=logger_dirpath)
+    
+    #logger = TensorBoardLogger("/home/dsi/ziniroi/roi-aviad/src/lightning_logs", name="my_model") 
+    trainer = Trainer(
+        accelerator="gpu", 
+        devices=1,
+        max_epochs=100,
+        #strategy = "ddp",
+        #gpus=1,
+        #auto_scale_batch_size="power",
+        enable_checkpointing=True,
+        callbacks=[checkpoint_callback, RichProgressBar(),stop_callback],
+        logger=True #tb_logger,
+        ,
+        detect_anomaly=True,
+        check_val_every_n_epoch=1
+    )
+    #trainer.tune(model)
     trainer.fit(model)
 
 
@@ -74,7 +77,7 @@ if __name__ == '__main__':
     parent_parser = ArgumentParser(add_help=False)
     parent_parser.add_argument('--dataset_dir', default='/home/dsi/ziniroi/roi-aviad/data/raw/train')
     parent_parser.add_argument('--log_dir', default='/home/dsi/ziniroi/roi-aviad/src/lightning_logs')
-    parent_parser.add_argument('--batch_size', default=1)
+    parent_parser.add_argument('--batch_size', default=4)
     parent_parser.add_argument('--learning_rate',default=0.1)
 
     parser = Unet.add_model_specific_args(parent_parser)
