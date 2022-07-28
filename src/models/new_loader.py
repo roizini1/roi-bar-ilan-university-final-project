@@ -1,12 +1,12 @@
 import sys
-sys.path.append('/roi-aviad/src/features')
+sys.path.append('/home/dsi/ziniroi/roi-aviad/src/features')
 
 import os
 import torch
 import pickle
 import numpy as np
-from feature_extractor import RTF_mix, RTF_target
-from torch.utils.data import Dataset, DataLoader
+from feature_extractor import RTF_mix, RTF_target ,H_transform
+from torch.utils.data import Dataset
 from scipy import signal
 
 class OldDataset(Dataset):
@@ -61,7 +61,7 @@ class OldDataset(Dataset):
         return mix, target
 
 class CustomDataset(Dataset):
-    def __init__(self, data_dir, transform=RTF_mix, target_transform=None):
+    def __init__(self, data_dir, transform=RTF_mix, target_transform=H_transform):
         self.data_dir = data_dir
         self.transform = transform
         self.target_transform = target_transform
@@ -76,8 +76,8 @@ class CustomDataset(Dataset):
         self.seconds = 3
         self.samples = self.seconds * self.fs
 
-    #def get_len(self):
-    #    return self.len
+    def get_len(self):
+        return self.len
 
     def loader(self,dir):
         # Loading pickle file:
@@ -91,11 +91,21 @@ class CustomDataset(Dataset):
         mix_slice = mix[0:min_index]
         mix_out = torch.zeros([mix.shape[0],self.samples])
         mix_out[:,0:min_index] = torch.tensor(mix_slice[:,0:min_index])
-    
-        # target:
+        
+        # option 1: target:
         target = np.array(item[self.target_index])
-        target_out = torch.from_numpy(target)
+        #print(target.shape)
+        target_out = torch.zeros(target.shape[0]*target.shape[1],target.shape[2])
+        target_out[:4,:] = torch.from_numpy(target[0,:,:])
+        target_out[4:,:] = torch.from_numpy(target[1,:,:])
+        '''
+        # option 2: target:
+        target = np.array(item[self.target_index])
+        #print(target.shape)
+        #target_out = torch.zeros_like(target)
 
+        target_out = torch.from_numpy(target)
+        '''
 
         return mix_out ,target_out
 
@@ -109,27 +119,11 @@ class CustomDataset(Dataset):
         if self.transform:
             mix = self.transform(mix)
         if self.target_transform:
-            target = self.target_transform(target)
+            target = self.target_transform(target,self.fs)
         return mix, target
 
-def PSD(x,y):
-    f, Pxx_den_2 = signal.csd(x,y,fs = fs,nfft=x.shape[0],return_onesided = False)
 
-def H_transform(h):
-    np.shape(h)
-    '''
-    x = np.randn(np.shape(h))
-    y = signal.convolve(h, x , mode='full', method='auto')
-    S_
-
-    H = 
-
-    return H
-    '''
-
-
-
-
+'''
 def loader_(dir='/home/dsi/ziniroi/roi-aviad/data/raw/train/train_scenario_2.p'):
     target_index = 2
     # Loading pickle file:
@@ -138,15 +132,18 @@ def loader_(dir='/home/dsi/ziniroi/roi-aviad/data/raw/train/train_scenario_2.p')
     # target:
     target = np.array(item[target_index])
     print(target.shape)
-    target_out = target[0,0,:]
-
+    target_out = torch.zeros(target.shape[0]*target.shape[1],target.shape[2])
+    target_out[:4,:] = torch.from_numpy(target[0,:,:])
+    target_out[4:,:] = torch.from_numpy(target[1,:,:])
     return target_out
 
 h=loader_()
-ph = H_transform(h)
+H = H_transform(h)
+print(H.shape)
+print(H)
 
-
-print(ph.shape)
+#print(np.shape(ph))
+'''
 '''
 data_set = CustomDataset('/home/dsi/ziniroi/roi-aviad/data/raw/train')
 

@@ -58,3 +58,29 @@ def RTF_target(target):
 
 
     return torch.from_numpy(target_out).to(torch.float32)
+
+
+
+def PSD(x,y,fs):    
+    _, Pxy = signal.csd(x,y,fs = fs,nfft=x.shape[0],return_onesided = False)  #fs = fs,
+    return Pxy
+
+def H_transform(h,fs):
+    
+    H = torch.zeros_like(h)
+    x = torch.randn_like(h)
+    for i in range(h.shape[0]):
+        y = signal.convolve(h[i,:], x[i,:] , mode='same', method='auto')
+        H[i,:] = torch.from_numpy(PSD(x[i,:],y,fs)/PSD(y,y,fs))
+    
+    '''
+    # option 2:
+    H = torch.zeros_like(h)
+    x = torch.randn_like(h)
+    for i in range(h.shape[0]):
+        for j in range(h.shape[1]):
+            y = signal.convolve(h[i,j,:], x[i,j,:] , mode='same', method='auto')
+            H[i,j,:] = torch.from_numpy(PSD(x[i,j,:],y,fs)/PSD(y,y,fs))
+    '''
+
+    return H
