@@ -33,7 +33,7 @@ def RTF_mix(mix):
 
         rtf[2*i,:,:]= temp.real
         rtf[2*i+1,:,:]=temp.imag
-
+    #print(np.shape(rtf))
     return rtf.to(torch.float32)
 
 def RTF_target(target):
@@ -56,7 +56,7 @@ def RTF_target(target):
         target_out[2*i,:,:] = stft_target[i].real
         target_out[2*i+1,:,:] = stft_target[i].imag
 
-
+    
     return torch.from_numpy(target_out).to(torch.float32)
 
 
@@ -66,12 +66,16 @@ def PSD(x,y,fs):
     return Pxy
 
 def H_transform(h,fs):
-    
-    H = torch.zeros_like(h)
+    #s = 0
+
+    H_out = torch.zeros(h.shape[0]*2,h.shape[1])
     x = torch.randn_like(h)
     for i in range(h.shape[0]):
         y = signal.convolve(h[i,:], x[i,:] , mode='same', method='auto')
-        H[i,:] = torch.from_numpy(PSD(x[i,:],y,fs)/PSD(y,y,fs))
+        H_temp = PSD(x[i,:],y,fs)/PSD(y,y,fs)
+
+        H_out[2*i,:] = torch.from_numpy(H_temp.real)
+        H_out[2*i+1,:] = torch.from_numpy(H_temp.imag)
     
     '''
     # option 2:
@@ -82,5 +86,6 @@ def H_transform(h,fs):
             y = signal.convolve(h[i,j,:], x[i,j,:] , mode='same', method='auto')
             H[i,j,:] = torch.from_numpy(PSD(x[i,j,:],y,fs)/PSD(y,y,fs))
     '''
-
-    return H
+    #print("#########$$#%#$!%#$^#%^%^%!^%$%$&%$&%$")
+    #print(s)
+    return H_out

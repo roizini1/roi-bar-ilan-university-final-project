@@ -26,4 +26,4 @@ class Config_class:
     db: data_base
     Training: Train_hp
     Net_hp: Network
-    #log_dir: str
+    log_dir: str

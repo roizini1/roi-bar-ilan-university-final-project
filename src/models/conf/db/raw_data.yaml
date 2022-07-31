@@ -1,4 +1,4 @@
-train_data_dir: ${hydra:runtime.cwd}/roi-aviad/data/raw/train
+train_data_dir: ${hydra:runtime.cwd}/roi-aviad/data/raw/train_to_download
 #val_data_dir:
 #test_data_dir:
 

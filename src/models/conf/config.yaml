@@ -3,4 +3,5 @@ defaults:
   - db: raw_data
   - Training: train_hp
   - Net_hp: Unet_hp
-#log_dir: str
+
+log_dir: ${hydra:runtime.cwd}/roi-aviad/logs
